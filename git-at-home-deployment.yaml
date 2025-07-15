@@ -26,7 +26,7 @@ spec:
       containers:
         - name: git-server
           # IMPORTANT: Update this line to point to your new, custom-built image
-          image: your-docker-repo/git-at-home:latest
+          image: ghcr.io/neptunehub/git-at-home:latest
           # REMOVED: The complex startup command is no longer needed. The Dockerfile's
           # CMD now handles starting the server correctly.
           ports:
