@@ -5,6 +5,19 @@ metadata:
   name: git-at-home
 
 ---
+# NEW: A Secret to store the git user's password.
+# The password is 'changeme' encoded in base64.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: git-password-secret
+  namespace: git-at-home
+type: Opaque
+data:
+  # To change the password, encode your new password with: echo -n 'newpassword' | base64
+  GIT_PASSWORD: Y2hhbmdlbWU=
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,33 +33,30 @@ spec:
       labels:
         app: git-at-home
     spec:
-      # REMOVED: The securityContext is no longer needed because the new image
-      # has the correct permissions and user setup.
-      # REMOVED: The initContainer is no longer needed.
+      # REMOVED: The initContainer for SSH keys is no longer needed.
       containers:
         - name: git-server
-          # IMPORTANT: Update this line to point to your new, custom-built image
           image: ghcr.io/neptunehub/git-at-home:latest
-          # REMOVED: The complex startup command is no longer needed. The Dockerfile's
-          # CMD now handles starting the server correctly.
+          # This command sets the git user's password from the secret,
+          # then generates host keys and starts the SSH server.
+          command: ["/bin/sh", "-c"]
+          args:
+            - echo "git:$GIT_PASSWORD" | chpasswd && ssh-keygen -A && exec /usr/sbin/sshd -D -e
+          env:
+            # Load the password from the secret into an environment variable.
+            - name: GIT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: git-password-secret
+                  key: GIT_PASSWORD
           ports:
             - containerPort: 22
           volumeMounts:
-            # Mount for the user's public key from the secret.
-            - name: ssh-keys
-              mountPath: /home/git/.ssh/authorized_keys
-              subPath: authorized_keys
-              readOnly: true
-            # Mount for the git repositories.
+            # Only the git-repos volume is needed now.
             - name: git-repos
               mountPath: /git/repos
       volumes:
-        # Volume for the user's public key.
-        - name: ssh-keys
-          secret:
-            secretName: git-ssh-keys
-            # Permissions are still important for the secret volume.
-            defaultMode: 0600
+        # REMOVED: The secret and home directory volumes for SSH keys are gone.
         # This volume uses a PersistentVolumeClaim for durable storage.
         - name: git-repos
           persistentVolumeClaim:
