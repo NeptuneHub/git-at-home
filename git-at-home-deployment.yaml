@@ -72,7 +72,9 @@ spec:
         - name: ssh-keys
           secret:
             secretName: git-ssh-keys
-            defaultMode: 0600
+            # FIX: Changed mode to 0640. This gives read access to the group (git),
+            # which is necessary because the file is owned by root.
+            defaultMode: 0640
         # This volume now uses a PersistentVolumeClaim for durable storage.
         - name: git-repos
           persistentVolumeClaim:
