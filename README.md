@@ -19,7 +19,7 @@ kubectl apply -f deployment.yaml
 If you want to create a repo called `audiomuse`, supposing that the ip of the loadbalancer is `192.168.3.17` you can just give this command:
 
 ```
-ssh git@192.168.3.17 "mkdir -p /git/repos/my-project.git && git init --bare /git/repos/audiomuse.git"
+ssh git@192.168.3.17 "mkdir -p /git/repos/audiomuse.git && git init --bare /git/repos/audiomuse.git"
 ```
 
 you then need to enter the password that by default is `changeme`
