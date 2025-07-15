@@ -41,6 +41,9 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              # FIX: Create the .ssh directory before setting its permissions.
+              # The -p flag ensures the command doesn't fail if the directory already exists.
+              mkdir -p /home/git/.ssh;
               # Set permissions for the .ssh directory on the writable git-home volume.
               chmod 700 /home/git/.ssh;
               # Set ownership for the git user (UID 1000) on its home and repo directories.
@@ -55,7 +58,7 @@ spec:
         - name: ssh-keys
           secret:
             secretName: git-ssh-keys
-            # FIX: This is the correct way to set permissions for files from a secret.
+            # This is the correct way to set permissions for files from a secret.
             # It sets the mode of the 'authorized_keys' file to 0600 (rw-------)
             # before it's mounted, avoiding the read-only volume error.
             defaultMode: 0600
