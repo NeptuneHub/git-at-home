@@ -7,10 +7,11 @@ OUT_FILE="git-at-home-deployment-with-secret.yaml"
 KEY_NAME="git-at-home.key"
 PUB_KEY="$KEY_NAME.pub"
 NAMESPACE="git-at-home"
+TMP_FILE="original-deployment.yaml"
 
 # 1️⃣ Download existing deployment YAML
 echo "🔽 Downloading deployment YAML..."
-curl -sL "$DEPLOY_URL" -o original-deployment.yaml
+curl -sL "$DEPLOY_URL" -o "$TMP_FILE"
 
 # 2️⃣ Generate SSH key pair
 echo "🔐 Generating SSH keypair..."
@@ -34,25 +35,23 @@ data:
 EOF
 )
 
-# 5️⃣ Construct new deployment YAML with Secret inserted after Namespace block
+# 5️⃣ Inject Secret manifest below the Namespace definition
 echo "🧩 Injecting Secret into deployment manifest..."
 awk -v secret="$SECRET_YAML" '
-  BEGIN {namespace_seen=0}
-  /^---/ {
-    print
-    next
-  }
-  /^apiVersion: v1/ && /kind: Namespace/ {
-    namespace_seen=1
-  }
+  BEGIN {inserted=0}
   {
     print
-    if(namespace_seen && NF==0) {
+    if (!inserted && $0 ~ /^kind: Namespace$/) {
+      getline; print
       print secret
-      namespace_seen=0
+      inserted=1
     }
   }
-' original-deployment.yaml > "$OUT_FILE"
+' "$TMP_FILE" > "$OUT_FILE"
+
+# 6️⃣ Cleanup
+echo "🧹 Removing temporary file..."
+rm -f "$TMP_FILE"
 
 echo "✅ Updated manifest saved to: $OUT_FILE"
 echo "🔑 Private key: $KEY_NAME"
