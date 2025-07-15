@@ -20,7 +20,7 @@ spec:
       labels:
         app: git-at-home
     spec:
-      # FIX: Add a security context to fix file ownership issues.
+      # Add a security context to fix file ownership issues.
       securityContext:
         # fsGroup ensures that all files in the volumes are owned by this group ID.
         # The git user's group ID is 1000. This allows sshd to read the
@@ -51,7 +51,8 @@ spec:
           # The command now generates host keys into a persistent volume on first start.
           command: ["/bin/sh", "-c"]
           args:
-            - ssh-keygen -A && exec /usr/sbin/sshd -D -e
+            # FIX: Unlock the git user account before starting sshd.
+            - passwd -u git && ssh-keygen -A && exec /usr/sbin/sshd -D -e
           ports:
             - containerPort: 22
           volumeMounts:
@@ -72,7 +73,7 @@ spec:
         - name: ssh-keys
           secret:
             secretName: git-ssh-keys
-            # FIX: Changed mode to 0640. This gives read access to the group (git),
+            # Changed mode to 0640. This gives read access to the group (git),
             # which is necessary because the file is owned by root.
             defaultMode: 0640
         # This volume now uses a PersistentVolumeClaim for durable storage.
