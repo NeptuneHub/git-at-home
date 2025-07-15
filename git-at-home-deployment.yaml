@@ -23,55 +23,38 @@ spec:
       containers:
         - name: git-server
           image: ghcr.io/neptunehub/git-at-home:latest
-          # FIX: Add a command to generate SSH host keys on startup.
-          # The sshd server requires these files to start.
-          # 'ssh-keygen -A' creates all the necessary host key files.
-          # 'exec /usr/sbin/sshd -D -e' starts the ssh daemon, logging to stderr.
+          # The command now generates host keys into a persistent volume on first start.
           command: ["/bin/sh", "-c"]
           args:
             - ssh-keygen -A && exec /usr/sbin/sshd -D -e
           ports:
             - containerPort: 22
           volumeMounts:
-            # This volume mount is read-only, which is a security best practice.
+            # Mount for the user's public key from the secret.
+            # This relies on the /home/git/.ssh directory from the original image.
             - name: ssh-keys
               mountPath: /home/git/.ssh/authorized_keys
               subPath: authorized_keys
               readOnly: true
-            - name: git-home
-              mountPath: /home/git
+            # Mount for the git repositories.
             - name: git-repos
               mountPath: /git/repos
-      initContainers:
-        - name: fix-permissions
-          image: alpine:latest
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              # Create the .ssh directory before setting its permissions.
-              # The -p flag ensures the command doesn't fail if the directory already exists.
-              mkdir -p /home/git/.ssh;
-              # Set permissions for the .ssh directory on the writable git-home volume.
-              chmod 700 /home/git/.ssh;
-              # Set ownership for the git user (UID 1000) on its home and repo directories.
-              chown -R 1000:1000 /home/git /git;
-          volumeMounts:
-            # No longer need to mount ssh-keys here just to change permissions.
-            - name: git-home
-              mountPath: /home/git
-            - name: git-repos
-              mountPath: /git/repos
+            # NEW: Mount for the server's host keys to persist them across restarts.
+            - name: ssh-host-keys
+              mountPath: /etc/ssh
+      # REMOVED: The initContainer is no longer needed. The original directory
+      # structure from the image is now preserved.
       volumes:
+        # Volume for the user's public key, with correct permissions.
         - name: ssh-keys
           secret:
             secretName: git-ssh-keys
-            # This is the correct way to set permissions for files from a secret.
-            # It sets the mode of the 'authorized_keys' file to 0600 (rw-------)
-            # before it's mounted, avoiding the read-only volume error.
             defaultMode: 0600
-        - name: git-home
-          emptyDir: {}
+        # Volume for the git repositories. For production, change this to a PVC.
         - name: git-repos
+          emptyDir: {}
+        # NEW: Volume to persist the server's host keys for the life of the pod.
+        - name: ssh-host-keys
           emptyDir: {}
 
 ---
