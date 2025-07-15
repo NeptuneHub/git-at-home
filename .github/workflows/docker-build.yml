@@ -36,7 +36,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepare image tag and owner (lowercase)
+      - name: Prepare image tag and lowercase repo owner
         id: vars
         run: |
           echo "tag=${{ github.event.inputs.tag || 'latest' }}" >> $GITHUB_OUTPUT
@@ -48,4 +48,4 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/${{ steps.vars.outputs.owner_lc }}/minimal-git-server:${{ steps.vars.outputs.tag }}
+          tags: ghcr.io/${{ steps.vars.outputs.owner_lc }}/git-at-home:${{ steps.vars.outputs.tag }}
