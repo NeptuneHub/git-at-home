@@ -21,7 +21,7 @@ spec:
         app: git-at-home
     spec:
       initContainers:
-        # FIX: This initContainer runs first to prepare the volume. It copies the
+        # This initContainer runs first to prepare the volume. It copies the
         # default sshd_config from the image into the shared volume, so that
         # mounting the volume doesn't hide the config file from the main container.
         - name: copy-ssh-config
@@ -67,9 +67,10 @@ spec:
           secret:
             secretName: git-ssh-keys
             defaultMode: 0600
-        # Volume for the git repositories. For production, change this to a PVC.
+        # This volume now uses a PersistentVolumeClaim for durable storage.
         - name: git-repos
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: git-repos-pvc
         # Volume to persist the server's host keys for the life of the pod.
         - name: ssh-host-keys
           emptyDir: {}
@@ -81,11 +82,29 @@ metadata:
   name: git-at-home
   namespace: git-at-home
 spec:
-  type: NodePort
+  # MODIFIED: Changed the service type to LoadBalancer.
+  type: LoadBalancer
   selector:
     app: git-at-home
   ports:
     - protocol: TCP
       port: 22
       targetPort: 22
-      nodePort: 32222
+      # REMOVED: The nodePort is not needed for a LoadBalancer service.
+
+---
+# This PersistentVolumeClaim requests durable storage for the git repositories.
+# Your cluster's default StorageClass will automatically provision a PersistentVolume.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: git-repos-pvc
+  namespace: git-at-home
+spec:
+  # ReadWriteOnce is appropriate for a single pod writing to the volume.
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      # Request 1 GiB of storage. You can adjust this size as needed.
+      storage: 1Gi
