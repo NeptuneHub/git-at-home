@@ -20,44 +20,19 @@ spec:
       labels:
         app: git-at-home
     spec:
-      # Add a security context to fix file ownership issues.
-      securityContext:
-        # fsGroup ensures that all files in the volumes are owned by this group ID.
-        # The git user's group ID is 1000. This allows sshd to read the
-        # authorized_keys file even though it's mounted from a root-owned secret.
-        fsGroup: 1000
-      initContainers:
-        # This initContainer runs first to prepare the volume. It copies the
-        # default sshd_config from the image into the shared volume, so that
-        # mounting the volume doesn't hide the config file from the main container.
-        - name: copy-ssh-config
-          image: ghcr.io/neptunehub/git-at-home:latest
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              set -e
-              if [ ! -f /persistent-ssh/sshd_config ]; then
-                echo "Initializing sshd_config in volume..."
-                cp /etc/ssh/sshd_config /persistent-ssh/sshd_config
-              else
-                echo "sshd_config already exists in volume."
-              fi
-          volumeMounts:
-            - name: ssh-host-keys
-              mountPath: /persistent-ssh
+      # REMOVED: The securityContext is no longer needed because the new image
+      # has the correct permissions and user setup.
+      # REMOVED: The initContainer is no longer needed.
       containers:
         - name: git-server
-          image: ghcr.io/neptunehub/git-at-home:latest
-          # The command now generates host keys into a persistent volume on first start.
-          command: ["/bin/sh", "-c"]
-          args:
-            # FIX: Unlock the git user account before starting sshd.
-            - passwd -u git && ssh-keygen -A && exec /usr/sbin/sshd -D -e
+          # IMPORTANT: Update this line to point to your new, custom-built image
+          image: your-docker-repo/git-at-home:latest
+          # REMOVED: The complex startup command is no longer needed. The Dockerfile's
+          # CMD now handles starting the server correctly.
           ports:
             - containerPort: 22
           volumeMounts:
             # Mount for the user's public key from the secret.
-            # This relies on the /home/git/.ssh directory from the original image.
             - name: ssh-keys
               mountPath: /home/git/.ssh/authorized_keys
               subPath: authorized_keys
@@ -65,24 +40,17 @@ spec:
             # Mount for the git repositories.
             - name: git-repos
               mountPath: /git/repos
-            # Mount for the server's host keys, which now also contains the config.
-            - name: ssh-host-keys
-              mountPath: /etc/ssh
       volumes:
-        # Volume for the user's public key, with correct permissions.
+        # Volume for the user's public key.
         - name: ssh-keys
           secret:
             secretName: git-ssh-keys
-            # Changed mode to 0640. This gives read access to the group (git),
-            # which is necessary because the file is owned by root.
-            defaultMode: 0640
-        # This volume now uses a PersistentVolumeClaim for durable storage.
+            # Permissions are still important for the secret volume.
+            defaultMode: 0600
+        # This volume uses a PersistentVolumeClaim for durable storage.
         - name: git-repos
           persistentVolumeClaim:
             claimName: git-repos-pvc
-        # Volume to persist the server's host keys for the life of the pod.
-        - name: ssh-host-keys
-          emptyDir: {}
 
 ---
 apiVersion: v1
@@ -91,7 +59,6 @@ metadata:
   name: git-at-home
   namespace: git-at-home
 spec:
-  # MODIFIED: Changed the service type to LoadBalancer.
   type: LoadBalancer
   selector:
     app: git-at-home
@@ -99,21 +66,17 @@ spec:
     - protocol: TCP
       port: 22
       targetPort: 22
-      # REMOVED: The nodePort is not needed for a LoadBalancer service.
 
 ---
 # This PersistentVolumeClaim requests durable storage for the git repositories.
-# Your cluster's default StorageClass will automatically provision a PersistentVolume.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: git-repos-pvc
   namespace: git-at-home
 spec:
-  # ReadWriteOnce is appropriate for a single pod writing to the volume.
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      # Request 1 GiB of storage. You can adjust this size as needed.
       storage: 1Gi
