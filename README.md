@@ -4,6 +4,14 @@ Headless Git container for homelab
 # deployment
 ```
 wget https://raw.githubusercontent.com/NeptuneHub/git-at-home/refs/heads/main/deployment.yaml
+```
+before apply it remember to:
+* change the path in the pv to match your correct local path, default is `/mnt/usb/git`
+* change the node to match the correct node, default is `ubuntu3`
+
+after the change you can apply:
+
+```
 kubectl apply -f deployment.yaml
 ```
 
