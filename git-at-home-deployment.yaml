@@ -20,6 +20,12 @@ spec:
       labels:
         app: git-at-home
     spec:
+      # FIX: Add a security context to fix file ownership issues.
+      securityContext:
+        # fsGroup ensures that all files in the volumes are owned by this group ID.
+        # The git user's group ID is 1000. This allows sshd to read the
+        # authorized_keys file even though it's mounted from a root-owned secret.
+        fsGroup: 1000
       initContainers:
         # This initContainer runs first to prepare the volume. It copies the
         # default sshd_config from the image into the shared volume, so that
