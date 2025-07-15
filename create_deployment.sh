@@ -32,18 +32,10 @@ ssh-keygen -t ed25519 -f "$KEY_NAME" -N "" -C "git-at-home"
 echo "✅ SSH key pair generated."
 echo
 
-# 2. Download the deployment YAML and split it into separate files
-echo "⬇️  Downloading and processing the base deployment YAML..."
+# 2. Download the deployment YAML
+echo "⬇️  Downloading the base deployment YAML..."
 curl -sL "$DEPLOY_URL" -o "$TMP_FULL_DEPLOYMENT"
-
-# Use awk to reliably split the multi-document YAML into individual files.
-# This command splits the input file by '---' and creates doc-1.yaml, doc-2.yaml, etc.
-# Each file will contain one resource definition, without the '---' separator.
-awk 'BEGIN {c=0} /^---/ {c++} {if (c > 0) print > "doc-" c ".yaml"}' "$TMP_FULL_DEPLOYMENT"
-
-# The original file has 3 documents: Namespace, Deployment, Service.
-# They will be split into doc-1.yaml, doc-2.yaml, and doc-3.yaml.
-echo "✅ Base YAML processed and split into individual documents."
+echo "✅ Base YAML downloaded."
 echo
 
 # 3. Create the Kubernetes Secret YAML for the public key
@@ -52,9 +44,9 @@ echo "📝 Creating Kubernetes Secret manifest..."
 # The -A flag ensures the output is a single, unbroken line of text.
 ENCODED_KEY=$(openssl base64 -A -in "$PUB_KEY")
 
-# Use a heredoc to create the Secret manifest content.
-# Note: We do not add '---' here; it will be added during assembly.
+# Use a heredoc to create the Secret manifest. It includes the '---' separator.
 cat > "$TMP_SECRET_FILE" <<EOF
+---
 apiVersion: v1
 kind: Secret
 metadata:
@@ -68,31 +60,30 @@ EOF
 echo "✅ Secret manifest created."
 echo
 
-# 4. Combine all the YAML parts into a single, valid output file
+# 4. Split the original YAML and insert the new Secret in the correct order
 echo "📦 Assembling the final deployment file in the correct order..."
-# Start with a clean file for the output.
-rm -f "$OUT_FILE"
 
-# The correct order for kubectl is: Namespace, then dependent resources like Secrets, then Deployments/Services.
-# We add '---' before each document to ensure the final file is a valid multi-document YAML.
-echo "---" >> "$OUT_FILE"
-cat doc-1.yaml >> "$OUT_FILE" # Document 1: Namespace
+# This awk command splits the downloaded YAML into two parts:
+# 1. The first document (the Namespace), which is assigned to NAMESPACE_DOC.
+# 2. Everything from the second '---' onwards, assigned to REST_OF_DOCS.
+# This ensures the Namespace is always first.
+NAMESPACE_DOC=$(awk '/^---/ {p++} p==1' "$TMP_FULL_DEPLOYMENT")
+REST_OF_DOCS=$(awk '/^---/ {p++} p>=2' "$TMP_FULL_DEPLOYMENT")
 
-echo "---" >> "$OUT_FILE"
-cat "$TMP_SECRET_FILE" >> "$OUT_FILE" # Our new Secret
-
-echo "---" >> "$OUT_FILE"
-cat doc-2.yaml >> "$OUT_FILE" # Document 2: Deployment
-
-echo "---" >> "$OUT_FILE"
-cat doc-3.yaml >> "$OUT_FILE" # Document 3: Service
+# Assemble the final file in the correct order for kubectl
+# 1. The Namespace document
+echo "$NAMESPACE_DOC" > "$OUT_FILE"
+# 2. The new Secret document
+cat "$TMP_SECRET_FILE" >> "$OUT_FILE"
+# 3. The rest of the original documents (Deployment, Service)
+echo "$REST_OF_DOCS" >> "$OUT_FILE"
 
 echo "✅ Final deployment file created: $OUT_FILE"
 echo
 
 # 5. Clean up temporary files
 echo "🧹 Cleaning up temporary files..."
-rm -f "$TMP_SECRET_FILE" "$TMP_FULL_DEPLOYMENT" doc-*.yaml
+rm -f "$TMP_SECRET_FILE" "$TMP_FULL_DEPLOYMENT"
 echo "✅ Cleanup complete."
 echo
 
