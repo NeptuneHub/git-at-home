@@ -23,6 +23,13 @@ spec:
       containers:
         - name: git-server
           image: ghcr.io/neptunehub/git-at-home:latest
+          # FIX: Add a command to generate SSH host keys on startup.
+          # The sshd server requires these files to start.
+          # 'ssh-keygen -A' creates all the necessary host key files.
+          # 'exec /usr/sbin/sshd -D -e' starts the ssh daemon, logging to stderr.
+          command: ["/bin/sh", "-c"]
+          args:
+            - ssh-keygen -A && exec /usr/sbin/sshd -D -e
           ports:
             - containerPort: 22
           volumeMounts:
@@ -41,7 +48,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              # FIX: Create the .ssh directory before setting its permissions.
+              # Create the .ssh directory before setting its permissions.
               # The -p flag ensures the command doesn't fail if the directory already exists.
               mkdir -p /home/git/.ssh;
               # Set permissions for the .ssh directory on the writable git-home volume.
