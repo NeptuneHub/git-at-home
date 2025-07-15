@@ -5,18 +5,6 @@ metadata:
   name: git-at-home
 
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: git-ssh-keys
-  namespace: git-at-home
-type: Opaque
-data:
-  # Replace with your actual base64-encoded authorized_keys content
-  authorized_keys: |
-    <BASE64_ENCODED_PUBLIC_KEY_FILE>
-
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
