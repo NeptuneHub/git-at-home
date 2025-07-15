@@ -30,12 +30,11 @@ metadata:
   namespace: $NAMESPACE
 type: Opaque
 data:
-  authorized_keys: |
-    $ENC_KEY
+  authorized_keys: "$ENC_KEY"
 EOF
 )
 
-# 5️⃣ Inject Secret manifest below the Namespace definition
+# 5️⃣ Inject Secret manifest directly below Namespace definition
 echo "🧩 Injecting Secret into deployment manifest..."
 awk -v secret="$SECRET_YAML" '
   BEGIN {inserted=0}
@@ -43,6 +42,7 @@ awk -v secret="$SECRET_YAML" '
     print
     if (!inserted && $0 ~ /^kind: Namespace$/) {
       getline; print
+      print ""
       print secret
       inserted=1
     }
@@ -50,9 +50,8 @@ awk -v secret="$SECRET_YAML" '
 ' "$TMP_FILE" > "$OUT_FILE"
 
 # 6️⃣ Cleanup
-echo "🧹 Removing temporary file..."
 rm -f "$TMP_FILE"
 
-echo "✅ Updated manifest saved to: $OUT_FILE"
-echo "🔑 Private key: $KEY_NAME"
-echo "📄 Public key: $PUB_KEY"
+echo "✅ DONE: Manifest with secret -> $OUT_FILE"
+echo "🔑 SSH private key: $KEY_NAME"
+echo "📄 SSH public key: $PUB_KEY"
