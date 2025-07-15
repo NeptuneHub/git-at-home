@@ -1,0 +1,89 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: git-at-home
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: git-ssh-keys
+  namespace: git-at-home
+type: Opaque
+data:
+  # Replace with your actual base64-encoded authorized_keys content
+  authorized_keys: |
+    <BASE64_ENCODED_PUBLIC_KEY_FILE>
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: git-at-home
+  namespace: git-at-home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: git-at-home
+  template:
+    metadata:
+      labels:
+        app: git-at-home
+    spec:
+      containers:
+        - name: git-server
+          image: ghcr.io/neptunehub/git-at-home:latest
+          ports:
+            - containerPort: 22
+          volumeMounts:
+            - name: ssh-keys
+              mountPath: /home/git/.ssh/authorized_keys
+              subPath: authorized_keys
+              readOnly: true
+            - name: git-home
+              mountPath: /home/git
+            - name: git-repos
+              mountPath: /git/repos
+      initContainers:
+        - name: fix-permissions
+          image: alpine:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              chmod 700 /home/git/.ssh;
+              chmod 600 /home/git/.ssh/authorized_keys;
+              chown -R 1000:1000 /home/git /git;
+          volumeMounts:
+            - name: ssh-keys
+              mountPath: /home/git/.ssh/authorized_keys
+              subPath: authorized_keys
+            - name: git-home
+              mountPath: /home/git
+            - name: git-repos
+              mountPath: /git/repos
+      volumes:
+        - name: ssh-keys
+          secret:
+            secretName: git-ssh-keys
+        - name: git-home
+          emptyDir: {}
+        - name: git-repos
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: git-at-home
+  namespace: git-at-home
+spec:
+  type: NodePort
+  selector:
+    app: git-at-home
+  ports:
+    - protocol: TCP
+      port: 22
+      targetPort: 22
+      nodePort: 32222
