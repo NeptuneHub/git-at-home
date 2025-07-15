@@ -1,27 +1,33 @@
 #!/bin/bash
 set -e
 
-# Configuration
+# Config
 DEPLOY_URL="https://raw.githubusercontent.com/NeptuneHub/git-at-home/main/git-at-home-deployment.yaml"
+TMP_NS_FILE="ns.yaml"
+TMP_BODY_FILE="rest.yaml"
 OUT_FILE="git-at-home-deployment-with-secret.yaml"
 KEY_NAME="git-at-home.key"
 PUB_KEY="$KEY_NAME.pub"
 NAMESPACE="git-at-home"
-TMP_FILE="original-deployment.yaml"
 
-# 1️⃣ Download existing deployment YAML
-echo "🔽 Downloading deployment YAML..."
-curl -sL "$DEPLOY_URL" -o "$TMP_FILE"
-
-# 2️⃣ Generate SSH key pair
-echo "🔐 Generating SSH keypair..."
+# 1. Generate SSH key
+echo "🔐 Generating SSH key..."
 ssh-keygen -t ed25519 -f "$KEY_NAME" -N "" -C "git-at-home"
 
-# 3️⃣ Base64-encode the public key (no newlines)
-ENC_KEY=$(base64 -w0 "$PUB_KEY")
+# 2. Download deployment and split Namespace from the rest
+echo "⬇️ Downloading deployment..."
+curl -sL "$DEPLOY_URL" -o full.yaml
 
-# 4️⃣ Build Secret manifest
-SECRET_YAML=$(cat <<EOF
+csplit --quiet --prefix=split full.yaml "/^---/" "{*}"
+mv split00 "$TMP_NS_FILE"
+cat split01 > "$TMP_BODY_FILE"
+rm -f full.yaml
+
+# 3. Encode public key safely
+ENCODED_KEY=$(openssl base64 -A -in "$PUB_KEY")
+
+# 4. Create the secret YAML block
+cat > secret.yaml <<EOF
 ---
 apiVersion: v1
 kind: Secret
@@ -30,28 +36,16 @@ metadata:
   namespace: $NAMESPACE
 type: Opaque
 data:
-  authorized_keys: "$ENC_KEY"
+  authorized_keys: "$ENCODED_KEY"
 EOF
-)
 
-# 5️⃣ Inject Secret manifest directly below Namespace definition
-echo "🧩 Injecting Secret into deployment manifest..."
-awk -v secret="$SECRET_YAML" '
-  BEGIN {inserted=0}
-  {
-    print
-    if (!inserted && $0 ~ /^kind: Namespace$/) {
-      getline; print
-      print ""
-      print secret
-      inserted=1
-    }
-  }
-' "$TMP_FILE" > "$OUT_FILE"
+# 5. Join all parts
+cat "$TMP_NS_FILE" secret.yaml "$TMP_BODY_FILE" > "$OUT_FILE"
 
-# 6️⃣ Cleanup
-rm -f "$TMP_FILE"
+# 6. Clean up
+rm -f "$TMP_NS_FILE" "$TMP_BODY_FILE" secret.yaml
 
-echo "✅ DONE: Manifest with secret -> $OUT_FILE"
-echo "🔑 SSH private key: $KEY_NAME"
-echo "📄 SSH public key: $PUB_KEY"
+# 7. Done
+echo "✅ Deployment with secret ready: $OUT_FILE"
+echo "🔑 Private key: $KEY_NAME"
+echo "📄 Public key: $PUB_KEY"
