@@ -20,6 +20,25 @@ spec:
       labels:
         app: git-at-home
     spec:
+      initContainers:
+        # FIX: This initContainer runs first to prepare the volume. It copies the
+        # default sshd_config from the image into the shared volume, so that
+        # mounting the volume doesn't hide the config file from the main container.
+        - name: copy-ssh-config
+          image: ghcr.io/neptunehub/git-at-home:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              if [ ! -f /persistent-ssh/sshd_config ]; then
+                echo "Initializing sshd_config in volume..."
+                cp /etc/ssh/sshd_config /persistent-ssh/sshd_config
+              else
+                echo "sshd_config already exists in volume."
+              fi
+          volumeMounts:
+            - name: ssh-host-keys
+              mountPath: /persistent-ssh
       containers:
         - name: git-server
           image: ghcr.io/neptunehub/git-at-home:latest
@@ -39,11 +58,9 @@ spec:
             # Mount for the git repositories.
             - name: git-repos
               mountPath: /git/repos
-            # NEW: Mount for the server's host keys to persist them across restarts.
+            # Mount for the server's host keys, which now also contains the config.
             - name: ssh-host-keys
               mountPath: /etc/ssh
-      # REMOVED: The initContainer is no longer needed. The original directory
-      # structure from the image is now preserved.
       volumes:
         # Volume for the user's public key, with correct permissions.
         - name: ssh-keys
@@ -53,7 +70,7 @@ spec:
         # Volume for the git repositories. For production, change this to a PVC.
         - name: git-repos
           emptyDir: {}
-        # NEW: Volume to persist the server's host keys for the life of the pod.
+        # Volume to persist the server's host keys for the life of the pod.
         - name: ssh-host-keys
           emptyDir: {}
 
