@@ -38,7 +38,7 @@ git push
 
 # Push from Local to Remote server
 
-Now let's say you have this local server on your K3S and you want time to time to push the content of main branch on the devel branch of your github repo. First step in your local server repo you need to add the reference to the remote server
+Now let's say you have this local server on your K3S and you want time to time to push the content of master branch on the devel branch of your github repo. First step in your local server repo you need to add the reference to the remote server
 
 ```
 git remote add github git@github.com:NeptuneHub/AudioMuse-AI.git
@@ -62,7 +62,7 @@ origin  ssh://git@192.168.3.17/git/repos/audiomuse.git (push)
 Now you can push in this two way:
 ```
 git push #push to the local server
-git push github main:devel #push from local main to remote devel
+git push github master:devel #push from local master to remote devel
 ```
 
 # useful command
