@@ -20,10 +20,10 @@ RUN sed -i 's/^#?PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh
 RUN echo 'server.port = 80' > /etc/lighttpd/lighttpd.conf && \
     echo 'server.username = "git"' >> /etc/lighttpd/lighttpd.conf && \
     echo 'server.groupname = "git"' >> /etc/lighttpd/lighttpd.conf && \
-    echo 'server.document-root = "/git/repos"' >> /etc/lighttpd/lighttpd.conf && \
     echo 'server.modules = ( "mod_cgi", "mod_setenv" )' >> /etc/lighttpd/lighttpd.conf && \
-    # FIX: Log to a file owned by the 'git' user instead of stderr.
     echo 'server.errorlog = "/var/log/lighttpd/error.log"' >> /etc/lighttpd/lighttpd.conf && \
+    # FIX: The git-http-backend script uses GIT_PROJECT_ROOT to find repos.
+    # The server.document-root directive is not needed and can interfere.
     echo 'setenv.add-environment = ( "GIT_PROJECT_ROOT" => "/git/repos", "GIT_HTTP_EXPORT_ALL" => "" )' >> /etc/lighttpd/lighttpd.conf && \
     echo 'cgi.assign = ( "" => "/usr/libexec/git-core/git-http-backend" )' >> /etc/lighttpd/lighttpd.conf
 
