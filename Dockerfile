@@ -11,13 +11,15 @@ RUN adduser -D -s /bin/sh git && \
     chown -R git:git /home/git /git && \
     chmod 700 /home/git/.ssh
 
-# --- FIX: Enable Password Authentication for SSH ---
-# Find the line for PasswordAuthentication in the sshd_config file,
-# uncomment it if necessary, and set its value to "yes".
+# Enable Password Authentication for SSH
 RUN sed -i 's/^#?PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
 
 # Configure lighttpd for git http backend
+# FIX: Run lighttpd as the 'git' user and group to ensure it has permissions
+# to read the repository files.
 RUN echo 'server.port = 80' > /etc/lighttpd/lighttpd.conf && \
+    echo 'server.username = "git"' >> /etc/lighttpd/lighttpd.conf && \
+    echo 'server.groupname = "git"' >> /etc/lighttpd/lighttpd.conf && \
     echo 'server.document-root = "/git/repos"' >> /etc/lighttpd/lighttpd.conf && \
     echo 'server.modules = ( "mod_cgi", "mod_setenv" )' >> /etc/lighttpd/lighttpd.conf && \
     echo 'server.errorlog = "/dev/stderr"' >> /etc/lighttpd/lighttpd.conf && \
@@ -32,5 +34,4 @@ COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
 # The CMD will run the startup script.
-# The script is responsible for setting the password and starting services.
 CMD ["/start.sh"]
