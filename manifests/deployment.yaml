@@ -44,6 +44,7 @@ spec:
         kubernetes.io/hostname: ubuntu3
       containers:
         - name: git-server
+          imagePullPolicy: Always
           image: ghcr.io/neptunehub/git-at-home:latest
           env:
             - name: GIT_PASSWORD
