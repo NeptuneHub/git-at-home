@@ -7,8 +7,9 @@ RUN apk add --no-cache git openssh shadow lighttpd
 RUN adduser -D -s /bin/sh git && \
     # Unlock the account. Password will be set at runtime.
     passwd -d git && \
-    mkdir -p /home/git/.ssh /git/repos /var/log/lighttpd && \
-    chown -R git:git /home/git /git /var/log/lighttpd && \
+    # FIX: Create a default document root for lighttpd to satisfy its startup requirement.
+    mkdir -p /home/git/.ssh /git/repos /var/log/lighttpd /var/www/localhost/htdocs && \
+    chown -R git:git /home/git /git /var/log/lighttpd /var/www/localhost/htdocs && \
     chmod 700 /home/git/.ssh
 
 # Enable Password Authentication for SSH
@@ -20,10 +21,11 @@ RUN sed -i 's/^#?PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh
 RUN echo 'server.port = 80' > /etc/lighttpd/lighttpd.conf && \
     echo 'server.username = "git"' >> /etc/lighttpd/lighttpd.conf && \
     echo 'server.groupname = "git"' >> /etc/lighttpd/lighttpd.conf && \
+    # FIX: Set a default document-root. This is required for lighttpd to start,
+    # but it won't interfere with the git CGI script.
+    echo 'server.document-root = "/var/www/localhost/htdocs"' >> /etc/lighttpd/lighttpd.conf && \
     echo 'server.modules = ( "mod_cgi", "mod_setenv" )' >> /etc/lighttpd/lighttpd.conf && \
     echo 'server.errorlog = "/var/log/lighttpd/error.log"' >> /etc/lighttpd/lighttpd.conf && \
-    # FIX: The git-http-backend script uses GIT_PROJECT_ROOT to find repos.
-    # The server.document-root directive is not needed and can interfere.
     echo 'setenv.add-environment = ( "GIT_PROJECT_ROOT" => "/git/repos", "GIT_HTTP_EXPORT_ALL" => "" )' >> /etc/lighttpd/lighttpd.conf && \
     echo 'cgi.assign = ( "" => "/usr/libexec/git-core/git-http-backend" )' >> /etc/lighttpd/lighttpd.conf
 
