@@ -3,26 +3,24 @@ FROM alpine:latest
 # 1. INSTALL PACKAGES
 # ===================================================================
 # Install git for version control, openssh for SSH access, shadow for
-# password management, and lighttpd for the web server.
-RUN apk add --no-cache git openssh shadow lighttpd
+# password management, nginx for the web server, and fcgi/spawn-fcgi
+# to manage the CGI process.
+RUN apk add --no-cache git openssh shadow nginx fcgi
 
 # 2. CREATE USER AND DIRECTORIES
 # ===================================================================
 # Create a non-root user 'git' to own the repositories and manage services.
-# Create all necessary directories for SSH, git repos, logs, and a dummy
-# web root required by the web server to start.
+# Create all necessary directories for SSH, git repos, and Nginx.
 RUN adduser -D -s /bin/sh git && \
     passwd -d git && \
     mkdir -p \
       /home/git/.ssh \
       /git/repos \
-      /var/log/lighttpd \
-      /var/www/localhost/htdocs && \
+      /run/nginx && \
     chown -R git:git \
       /home/git \
       /git \
-      /var/log/lighttpd \
-      /var/www/localhost/htdocs && \
+      /run/nginx && \
     chmod 700 /home/git/.ssh
 
 # 3. CONFIGURE SSH
@@ -31,41 +29,38 @@ RUN adduser -D -s /bin/sh git && \
 # authentication, which is disabled by default in many images.
 RUN sed -i 's/^#?PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
 
-# 4. CONFIGURE HTTP (WEB SERVER)
+# 4. CONFIGURE HTTP (NGINX)
 # ===================================================================
-# Create a minimal, robust configuration for lighttpd.
-# This setup dedicates the entire web server to handling git requests.
-RUN cat <<EOF > /etc/lighttpd/lighttpd.conf
-# Run the server on the standard HTTP port.
-server.port = 80
+# Create a robust Nginx configuration for git-http-backend.
+RUN cat <<EOF > /etc/nginx/nginx.conf
+# Run nginx worker processes as the 'git' user
+user git git;
+worker_processes 1;
+pid /run/nginx/nginx.pid;
 
-# Run the process as the 'git' user and group to ensure it has
-# permissions to read the git repositories.
-server.username = "git"
-server.groupname = "git"
+events {
+    worker_connections 1024;
+}
 
-# Set a dummy document root. This is required for lighttpd to start
-# but does not interfere with the git service.
-server.document-root = "/var/www/localhost/htdocs"
+http {
+    server {
+        listen 80;
+        server_name localhost;
 
-# Log errors to a file that the 'git' user has permission to write to.
-server.errorlog = "/var/log/lighttpd/error.log"
+        # This location block handles all incoming requests
+        location / {
+            # Pass all requests to the fcgiwrap socket where the git script is listening
+            fastcgi_pass unix:/var/run/fcgiwrap.socket;
 
-# Load only the modules required for the git CGI script.
-server.modules = ( "mod_cgi", "mod_setenv" )
-
-# Set environment variables required by the git-http-backend script.
-# - GIT_PROJECT_ROOT tells git where to find the repositories.
-# - GIT_HTTP_EXPORT_ALL allows cloning of all repositories without needing
-#   a special 'git-daemon-export-ok' file.
-setenv.add-environment = (
-    "GIT_PROJECT_ROOT" => "/git/repos",
-    "GIT_HTTP_EXPORT_ALL" => ""
-)
-
-# Assign all incoming requests to be handled by the git CGI script.
-# This is the simplest and most reliable setup for a dedicated git server.
-cgi.assign = ( "" => "/usr/libexec/git-core/git-http-backend" )
+            # Set required FastCGI parameters for the git backend script
+            include fastcgi_params;
+            param SCRIPT_FILENAME   /usr/libexec/git-core/git-http-backend;
+            param GIT_PROJECT_ROOT  /git/repos;
+            param GIT_HTTP_EXPORT_ALL "";
+            param PATH_INFO         \$request_uri;
+        }
+    }
+}
 EOF
 
 # 5. EXPOSE PORTS AND DEFINE STARTUP COMMAND
