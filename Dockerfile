@@ -11,9 +11,12 @@ RUN adduser -D -s /bin/sh git && \
     chown -R git:git /home/git /git && \
     chmod 700 /home/git/.ssh
 
+# --- FIX: Enable Password Authentication for SSH ---
+# Find the line for PasswordAuthentication in the sshd_config file,
+# uncomment it if necessary, and set its value to "yes".
+RUN sed -i 's/^#?PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+
 # Configure lighttpd for git http backend
-# This creates a minimal configuration to serve git repos over HTTP.
-# It makes git-http-backend handle all incoming requests.
 RUN echo 'server.port = 80' > /etc/lighttpd/lighttpd.conf && \
     echo 'server.document-root = "/git/repos"' >> /etc/lighttpd/lighttpd.conf && \
     echo 'server.modules = ( "mod_cgi", "mod_setenv" )' >> /etc/lighttpd/lighttpd.conf && \
