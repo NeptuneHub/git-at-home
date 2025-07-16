@@ -36,6 +36,11 @@ git commit -m "Add test file"
 git push
 ```
 
+to see the graph
+```
+git log --oneline --graph --all
+```
+
 # Push from Local to Remote server
 
 Now let's say you have this local server on your K3S and you want time to time to push the content of master branch on the devel branch of your github repo. First step in your local server repo you need to add the reference to the remote server
