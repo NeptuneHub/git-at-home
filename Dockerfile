@@ -5,7 +5,8 @@ FROM alpine:latest
 # Install git for version control, openssh for SSH access, shadow for
 # password management, nginx for the web server, and fcgi/spawn-fcgi
 # to manage the CGI process.
-RUN apk add --no-cache git openssh shadow nginx fcgi
+# FIX: Added 'spawn-fcgi' package which provides the missing command.
+RUN apk add --no-cache git openssh shadow nginx fcgi spawn-fcgi
 
 # 2. CREATE USER AND DIRECTORIES
 # ===================================================================
