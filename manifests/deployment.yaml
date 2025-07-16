@@ -44,9 +44,7 @@ spec:
         kubernetes.io/hostname: ubuntu3
       containers:
         - name: git-server
-          # IMPORTANT: Update this with the path to your new image
-          image: ghcr.io/neptunehub/git-at-home:http-enabled # <-- CHANGE THIS
-          # The 'command' and 'args' are now handled by start.sh in the image
+          image: ghcr.io/neptunehub/git-at-home:latest
           env:
             - name: GIT_PASSWORD
               valueFrom:
