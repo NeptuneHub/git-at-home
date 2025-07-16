@@ -7,22 +7,23 @@ RUN apk add --no-cache git openssh shadow lighttpd
 RUN adduser -D -s /bin/sh git && \
     # Unlock the account. Password will be set at runtime.
     passwd -d git && \
-    mkdir -p /home/git/.ssh /git/repos && \
-    chown -R git:git /home/git /git && \
+    mkdir -p /home/git/.ssh /git/repos /var/log/lighttpd && \
+    chown -R git:git /home/git /git /var/log/lighttpd && \
     chmod 700 /home/git/.ssh
 
 # Enable Password Authentication for SSH
 RUN sed -i 's/^#?PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
 
 # Configure lighttpd for git http backend
-# FIX: Run lighttpd as the 'git' user and group to ensure it has permissions
+# Run lighttpd as the 'git' user and group to ensure it has permissions
 # to read the repository files.
 RUN echo 'server.port = 80' > /etc/lighttpd/lighttpd.conf && \
     echo 'server.username = "git"' >> /etc/lighttpd/lighttpd.conf && \
     echo 'server.groupname = "git"' >> /etc/lighttpd/lighttpd.conf && \
     echo 'server.document-root = "/git/repos"' >> /etc/lighttpd/lighttpd.conf && \
     echo 'server.modules = ( "mod_cgi", "mod_setenv" )' >> /etc/lighttpd/lighttpd.conf && \
-    echo 'server.errorlog = "/dev/stderr"' >> /etc/lighttpd/lighttpd.conf && \
+    # FIX: Log to a file owned by the 'git' user instead of stderr.
+    echo 'server.errorlog = "/var/log/lighttpd/error.log"' >> /etc/lighttpd/lighttpd.conf && \
     echo 'setenv.add-environment = ( "GIT_PROJECT_ROOT" => "/git/repos", "GIT_HTTP_EXPORT_ALL" => "" )' >> /etc/lighttpd/lighttpd.conf && \
     echo 'cgi.assign = ( "" => "/usr/libexec/git-core/git-http-backend" )' >> /etc/lighttpd/lighttpd.conf
 
