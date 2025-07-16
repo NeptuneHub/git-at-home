@@ -24,6 +24,7 @@ ssh git@192.168.3.17 "mkdir -p /git/repos/audiomuse.git && git init --bare /git/
 
 you then need to enter the password that by default is `changeme`
 
+
 # use the repo
 The normal git command to test that everything work are this:
 ```
@@ -33,6 +34,35 @@ git config --global user.name "neptunehub"
 git add test.txt
 git commit -m "Add test file"
 git push
+```
+
+# Push from Local to Remote server
+
+Now let's say you have this local server on your K3S and you want time to time to push the content of main branch on the devel branch of your github repo. First step in your local server repo you need to add the reference to the remote server
+
+```
+git remote add github git@github.com:NeptuneHub/AudioMuse-AI.git
+```
+
+* **Important** for git we have setup the access by ssh key
+
+Now you can check ths change with this command:
+```
+git remote -v
+```
+
+the output will be something like this:
+```
+github  git@github.com:NeptuneHub/AudioMuse-AI.git (fetch)
+github  git@github.com:NeptuneHub/AudioMuse-AI.git (push)
+origin  ssh://git@192.168.3.17/git/repos/audiomuse.git (fetch)
+origin  ssh://git@192.168.3.17/git/repos/audiomuse.git (push)
+```
+
+Now you can push in this two way:
+```
+git push #push to the local server
+git push github main:devel #push from local main to remote devel
 ```
 
 # useful command
