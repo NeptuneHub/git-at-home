@@ -1,18 +1,23 @@
 #!/bin/sh
 
-# Exit immediately if a command exits with a non-zero status.
+# Exit on any error
 set -e
 
-# Set git user password from the environment variable if it is provided.
+# 1. Set password for git user from environment variable
 if [ -n "$GIT_PASSWORD" ]; then
   echo "git:$GIT_PASSWORD" | chpasswd
 fi
 
-# Generate SSH host keys for the sshd service.
+# 2. Generate SSH host keys if they don't exist
 ssh-keygen -A
 
-# Start lighttpd web server in the background to handle HTTP git requests.
-/usr/sbin/lighttpd -f /etc/lighttpd/lighttpd.conf
+# 3. Start the SSH daemon in the background
+/usr/sbin/sshd
 
-# Start sshd in the foreground. This becomes the main process for the container.
-exec /usr/sbin/sshd -D -e
+# 4. Start the FastCGI wrapper daemon in the background.
+# It will listen on a unix socket for requests from Nginx.
+spawn-fcgi -s /var/run/fcgiwrap.socket -U git -G git /usr/bin/fcgiwrap
+
+# 5. Start Nginx in the foreground.
+# This will be the main process for the container. If it exits, the container stops.
+exec /usr/sbin/nginx -g 'daemon off;'
