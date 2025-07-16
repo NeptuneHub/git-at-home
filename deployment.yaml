@@ -44,10 +44,9 @@ spec:
         kubernetes.io/hostname: ubuntu3
       containers:
         - name: git-server
-          image: ghcr.io/neptunehub/git-at-home:latest
-          command: ["/bin/sh", "-c"]
-          args:
-            - echo "git:$GIT_PASSWORD" | chpasswd && ssh-keygen -A && exec /usr/sbin/sshd -D -e
+          # IMPORTANT: Update this with the path to your new image
+          image: ghcr.io/neptunehub/git-at-home:http-enabled # <-- CHANGE THIS
+          # The 'command' and 'args' are now handled by start.sh in the image
           env:
             - name: GIT_PASSWORD
               valueFrom:
@@ -55,7 +54,10 @@ spec:
                   name: git-password-secret
                   key: GIT_PASSWORD
           ports:
-            - containerPort: 22
+            - name: ssh
+              containerPort: 22
+            - name: http
+              containerPort: 80
           volumeMounts:
             - name: git-repos
               mountPath: /git/repos
@@ -74,6 +76,11 @@ spec:
   selector:
     app: git-at-home
   ports:
-    - protocol: TCP
+    - name: ssh
+      protocol: TCP
       port: 22
       targetPort: 22
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
