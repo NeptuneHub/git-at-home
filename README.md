@@ -65,6 +65,11 @@ git push #push to the local server
 git push github master:devel #push from local master to remote devel
 ```
 
+if your local is empty and you want first to allign to remote, you can run this command:
+```
+git pull github devel
+```
+
 # useful command
 If the ip is alredy in your known_host, you can remove it by this command:
 
